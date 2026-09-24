@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Syne", system-ui, -apple-system, sans-serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+
+  /* Paleta VYBE (minimalista) */
+  --color-paper: #FFFFFF;
+  --color-snow: #FAFAFA;
+  --color-mist: #EAEAEA;
+  --color-ink: #111111;
+  --color-graphite: #333333;
+
+  --radius-brand: 6px;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background-color: var(--color-paper);
+  }
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-graphite);
+    outline-offset: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes vybe-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes vybe-drop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.vybe-rise { animation: vybe-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.vybe-drop { animation: vybe-drop 0.25s ease-out both; }
+
+@keyframes vybe-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.vybe-marquee-track { animation: vybe-marquee 48s linear infinite; }
+.vybe-marquee:hover .vybe-marquee-track,
+.vybe-marquee:focus-within .vybe-marquee-track { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .vybe-marquee-track { animation: none !important; width: auto; flex-wrap: wrap; justify-content: center; }
+  .vybe-marquee-dup { display: none; }
+}
+
+@layer components {
+/* Escala de títulos: uma definição para todo o site */
+.title-page {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.875rem, 5vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+  text-wrap: balance;
+}
+.title-section {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.5rem, 3.6vw, 2.25rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--color-ink);
+  text-wrap: balance;
+}
+}

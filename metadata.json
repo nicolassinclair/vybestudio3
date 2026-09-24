@@ -1,0 +1,7 @@
+{
+  "name": "VYBE Studio - Personalizados",
+  "description": "Loja virtual e personalizador interativo 2D de canecas, camisas, bags e presentes personalizados da VYBE Studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

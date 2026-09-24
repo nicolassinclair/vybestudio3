@@ -1,0 +1,107 @@
+{
+  "banners": [
+    {
+      "id": "banner-primeira-compra",
+      "name": "Primeira Compra 20% OFF",
+      "desktopImage": "/images/banners/banner_primeiravybe.png",
+      "mobileImage": "/images/banners/banner_primeiravybe.png",
+      "targetUrl": "/personalizar/caneca",
+      "altText": "Banner promocional da primeira compra com cupom PRIMEIRAVYBE e 20% de desconto",
+      "order": 1,
+      "active": true,
+      "createdAt": "2026-09-24T15:05:27.901Z"
+    },
+    {
+      "id": "banner-catalogo-vybe",
+      "name": "Catálogo VYBE Studio",
+      "desktopImage": "/images/banners/banner_catalogo.png",
+      "mobileImage": "/images/banners/banner_catalogo.png",
+      "targetUrl": "/produtos",
+      "altText": "Banner do catálogo com canecas, camisas e presentes personalizados",
+      "order": 2,
+      "active": true,
+      "createdAt": "2026-09-24T15:05:27.901Z"
+    }
+  ],
+  "coupons": [
+    {
+      "id": "coupon-primeiravybe",
+      "campaignName": "Primeira Compra - 20% OFF no Banner Oficial",
+      "code": "PRIMEIRAVYBE",
+      "discountType": "percentage",
+      "discountValue": 20,
+      "minOrderValue": 200,
+      "maxDiscount": 150,
+      "firstPurchaseOnly": true,
+      "isCumulative": false,
+      "active": true,
+      "usedCount": 0,
+      "createdAt": "2026-09-24T15:05:27.901Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "usr-1790262650449-oz60p",
+      "name": "Cliente Teste VYBE",
+      "email": "cliente@teste.com",
+      "role": "customer",
+      "createdAt": "2026-09-24T15:10:50.449Z",
+      "passwordHash": "93f742e9d53171455e63f614988a4a03479e09d7b9d3c608ab403e581ead3da25d6b414f1da9725a8b15d8c773627c274b8a4bb2e43345626be27e8d36636b07",
+      "salt": "99504fd687ae688b6b564fe273b8e309"
+    }
+  ],
+  "orders": [
+    {
+      "id": "VYBE-260924-0001",
+      "createdAt": "2026-09-24T15:11:08.559Z",
+      "customer": {
+        "name": "Cliente Teste VYBE",
+        "whatsapp": "11999998888",
+        "email": "cliente@teste.com",
+        "deliveryMethod": "retirada"
+      },
+      "items": [
+        {
+          "productId": "caneca-ceramica-325ml",
+          "name": "Caneca Cerâmica 325ml",
+          "category": "canecas",
+          "unitPrice": 50,
+          "quantity": 5,
+          "totalPrice": 250,
+          "image": "/images/mug_white_product.png"
+        }
+      ],
+      "subtotal": 250,
+      "discountAmount": 50,
+      "appliedCoupon": {
+        "code": "PRIMEIRAVYBE",
+        "campaignName": "Primeira Compra - 20% OFF no Banner Oficial",
+        "discountType": "percentage",
+        "discountValue": 20,
+        "discountAmount": 50
+      },
+      "total": 200,
+      "status": "pendente",
+      "hasCustomArtwork": false
+    }
+  ],
+  "resetTokens": [
+    {
+      "token": "6031b4c8aff38ec3abe364655ea505083985e142b02cf2c3",
+      "email": "cliente@teste.com",
+      "expiresAt": 1790266264918
+    }
+  ],
+  "sessions": {
+    "b8c7e99696d3121db32ac8c5d243bac9fd53b90f4393861a7d3b4f4d0ed1e309": {
+      "userId": "usr-1790262650449-oz60p",
+      "role": "customer",
+      "expiresAt": 1792854650450
+    },
+    "7204e56bc6f50289636b3303210545fc247995745638a1e916501b7789d58499": {
+      "userId": "usr-1790262650449-oz60p",
+      "role": "customer",
+      "expiresAt": 1792854660704
+    }
+  }
+}
