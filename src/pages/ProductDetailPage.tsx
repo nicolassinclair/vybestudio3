@@ -70,15 +70,27 @@ export const ProductDetailPage: React.FC = () => {
     );
   }
 
+  const hasPromo = product.promotionalPrice && product.promotionalPrice > 0 && product.promotionalPrice < product.price;
+  const effectivePrice = hasPromo ? product.promotionalPrice! : product.price;
+
   const formattedPrice = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(effectivePrice);
+
+  const originalPriceFormatted = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(product.price);
 
   const sizes = product.specs.sizes ?? (product.category === 'camisas' ? ['P', 'M', 'G', 'GG', 'XG'] : undefined);
   const minQty = product.minQuantity || 1;
+  const maxQty = (product.manageStock && !product.allowBackorders && typeof product.stockQuantity === 'number')
+    ? product.stockQuantity
+    : (product.maxQuantity || 9999);
+
   const colors = product.specs.colors ?? [];
-  const total = brl.format(product.price * quantity);
+  const total = brl.format(effectivePrice * quantity);
   const toggle = (id: string) => setOpenRow(openRow === id ? null : id);
   const waMessage = `Olá! Vi o produto ${product.name} na ${settings.storeName} e gostaria de saber mais.`;
   const waUrl = `https://wa.me/${settings.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(waMessage)}`;
@@ -94,9 +106,9 @@ export const ProductDetailPage: React.FC = () => {
       productId: product.id,
       name: product.name,
       category: product.categoryLabel,
-      unitPrice: product.price,
+      unitPrice: effectivePrice,
       quantity,
-      image: product.images[0],
+      image: product.coverImage || product.images[0],
       colorName: selectedColor,
       sizeName: selectedSize || undefined,
     });
@@ -175,8 +187,17 @@ export const ProductDetailPage: React.FC = () => {
               <span className="text-2xl sm:text-3xl font-extrabold text-black font-mono tabular-nums">
                 {formattedPrice}
               </span>
+              {hasPromo && (
+                <span className="text-sm font-semibold text-stone-400 line-through tabular-nums">
+                  {originalPriceFormatted}
+                </span>
+              )}
               <span className="text-xs text-stone-500">
-                · {product.inStock ? 'Em estoque' : 'Sob encomenda'}
+                · {product.inStock ? (
+                  product.manageStock && typeof product.stockQuantity === 'number'
+                    ? `${product.stockQuantity} disponíveis`
+                    : 'Em estoque'
+                ) : 'Sob encomenda'}
               </span>
             </div>
           </div>

@@ -23,23 +23,38 @@ import {
   ArrowDown,
   Search,
   CheckCircle2,
+  Smartphone,
+  Monitor,
+  Upload,
+  Copy,
+  FolderPlus,
+  Filter,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { storageService } from '../services/storageService';
 import { apiService } from '../services/apiService';
-import { Product, Order, StoreSettings, HomeBanner, Coupon } from '../types';
+import { Product, Order, StoreSettings, HomeBanner, Coupon, CategoryInfo, ProductStatus } from '../types';
 import { getArtworkFromIndexedDB } from '../services/indexedDb';
+import { ProductAdminModal } from '../components/ProductAdminModal';
+import { CategoryAdminModal } from '../components/CategoryAdminModal';
 
 export const AdminPage: React.FC = () => {
   const { isAuthenticated, login, logout } = useAuth();
   const [passcode, setPasscode] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [activeTab, setActiveTab] = useState<'products' | 'banners' | 'coupons' | 'orders' | 'customization' | 'settings'>('banners');
+  const [activeTab, setActiveTab] = useState<'products' | 'banners' | 'coupons' | 'orders' | 'customization' | 'settings'>('products');
 
-  // Products state
+  // Categories state
+  const [categories, setCategories] = useState<CategoryInfo[]>(storageService.getCategories());
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+  // Products state & filters
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('all');
+  const [productStatusFilter, setProductStatusFilter] = useState<'all' | 'ativo' | 'indisponivel' | 'rascunho'>('all');
 
   // Banners state
   const [banners, setBanners] = useState<HomeBanner[]>([]);
@@ -64,8 +79,31 @@ export const AdminPage: React.FC = () => {
 
   // Load data
   const refreshData = async () => {
-    setProducts(storageService.getProducts());
     setSettings(storageService.getSettings());
+
+    try {
+      const pList = await apiService.getProducts(true);
+      if (pList && pList.length > 0) {
+        setProducts(pList);
+        storageService.saveProducts(pList);
+      } else {
+        setProducts(storageService.getProducts());
+      }
+    } catch {
+      setProducts(storageService.getProducts());
+    }
+
+    try {
+      const catList = await apiService.getCategories();
+      if (catList && catList.length > 0) {
+        setCategories(catList);
+        storageService.saveCategories(catList);
+      } else {
+        setCategories(storageService.getCategories());
+      }
+    } catch {
+      setCategories(storageService.getCategories());
+    }
 
     try {
       const bList = await apiService.getBanners();
@@ -110,12 +148,22 @@ export const AdminPage: React.FC = () => {
   // ----------------------------------------------------
   // Product CRUD
   // ----------------------------------------------------
-  const handleSaveProduct = (prod: Product) => {
+  const handleSaveProduct = async (prod: Product) => {
+    try {
+      if (isAddingProduct || !products.some(p => p.id === prod.id)) {
+        await apiService.createProduct(prod);
+      } else {
+        await apiService.updateProduct(prod.id, prod);
+      }
+    } catch (e) {
+      console.warn('API sync warning:', e);
+    }
+
     let updated: Product[];
     if (products.some(p => p.id === prod.id)) {
       updated = products.map(p => (p.id === prod.id ? prod : p));
     } else {
-      updated = [...products, prod];
+      updated = [prod, ...products];
     }
     setProducts(updated);
     storageService.saveProducts(updated);
@@ -123,24 +171,128 @@ export const AdminPage: React.FC = () => {
     setIsAddingProduct(false);
   };
 
-  const handleDeleteProduct = (id: string) => {
-    if (confirm('Tem certeza que deseja remover este produto?')) {
+  const handleDeleteProduct = async (id: string) => {
+    if (confirm('Tem certeza que deseja remover este produto do catálogo?')) {
+      try {
+        await apiService.deleteProduct(id);
+      } catch (e) {
+        console.warn('API error:', e);
+      }
       const updated = products.filter(p => p.id !== id);
       setProducts(updated);
       storageService.saveProducts(updated);
     }
   };
 
-  const handleToggleProductFeatured = (id: string) => {
-    const updated = products.map(p => (p.id === id ? { ...p, isFeatured: !p.isFeatured } : p));
+  const handleDuplicateProduct = async (prod: Product) => {
+    const newSku = `${prod.sku || 'PRD'}-COPY-${Math.floor(10 + Math.random() * 90)}`;
+    const cloned: Product = {
+      ...prod,
+      id: `prod-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: `${prod.name} (Cópia)`,
+      slug: `${prod.slug}-copia-${Date.now()}`,
+      sku: newSku,
+      status: 'rascunho',
+      isFeatured: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await apiService.createProduct(cloned);
+    } catch (e) {
+      console.warn('API error:', e);
+    }
+
+    const updated = [cloned, ...products];
+    setProducts(updated);
+    storageService.saveProducts(updated);
+    setEditingProduct(cloned);
+    setIsAddingProduct(false);
+  };
+
+  const handleToggleProductStatus = async (prod: Product) => {
+    const nextStatus: ProductStatus =
+      prod.status === 'ativo' ? 'indisponivel' : prod.status === 'indisponivel' ? 'rascunho' : 'ativo';
+    const updatedProd: Product = { ...prod, status: nextStatus, inStock: nextStatus === 'ativo' };
+
+    try {
+      await apiService.updateProduct(prod.id, { status: nextStatus, inStock: updatedProd.inStock });
+    } catch (e) {
+      console.warn('API error:', e);
+    }
+
+    const updated = products.map(p => (p.id === prod.id ? updatedProd : p));
     setProducts(updated);
     storageService.saveProducts(updated);
   };
 
-  const handleToggleProductStock = (id: string) => {
-    const updated = products.map(p => (p.id === id ? { ...p, inStock: !p.inStock } : p));
+  const handleToggleProductFeatured = async (id: string) => {
+    const prod = products.find(p => p.id === id);
+    if (!prod) return;
+    const isFeatured = !prod.isFeatured;
+
+    try {
+      await apiService.updateProduct(id, { isFeatured });
+    } catch (e) {
+      console.warn('API error:', e);
+    }
+
+    const updated = products.map(p => (p.id === id ? { ...p, isFeatured } : p));
     setProducts(updated);
     storageService.saveProducts(updated);
+  };
+
+  const handleToggleProductStock = async (id: string) => {
+    const prod = products.find(p => p.id === id);
+    if (!prod) return;
+    const inStock = !prod.inStock;
+    const status: ProductStatus = inStock ? 'ativo' : 'indisponivel';
+
+    try {
+      await apiService.updateProduct(id, { inStock, status });
+    } catch (e) {
+      console.warn('API error:', e);
+    }
+
+    const updated = products.map(p => (p.id === id ? { ...p, inStock, status } : p));
+    setProducts(updated);
+    storageService.saveProducts(updated);
+  };
+
+  // ----------------------------------------------------
+  // Category Handlers
+  // ----------------------------------------------------
+  const handleSaveCategory = async (cat: CategoryInfo) => {
+    try {
+      if (categories.some(c => c.id === cat.id)) {
+        await apiService.updateCategory(cat.id, cat);
+      } else {
+        await apiService.createCategory(cat);
+      }
+    } catch (e) {
+      console.warn('API error:', e);
+    }
+
+    let updatedCats: CategoryInfo[];
+    if (categories.some(c => c.id === cat.id)) {
+      updatedCats = categories.map(c => (c.id === cat.id ? cat : c));
+    } else {
+      updatedCats = [...categories, cat];
+    }
+    setCategories(updatedCats);
+    storageService.saveCategories(updatedCats);
+  };
+
+  const handleDeleteCategory = async (catId: string) => {
+    try {
+      await apiService.deleteCategory(catId);
+    } catch (e) {
+      console.warn('API error:', e);
+    }
+    const updatedCats = categories.filter(c => c.id !== catId);
+    setCategories(updatedCats);
+    storageService.saveCategories(updatedCats);
   };
 
   // ----------------------------------------------------
@@ -372,6 +524,23 @@ export const AdminPage: React.FC = () => {
     return true;
   });
 
+  const filteredProducts = products.filter(p => {
+    const q = productSearch.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      p.name.toLowerCase().includes(q) ||
+      (p.sku && p.sku.toLowerCase().includes(q)) ||
+      p.categoryLabel.toLowerCase().includes(q);
+
+    if (!matchesSearch) return false;
+    if (productCategoryFilter !== 'all' && p.category !== productCategoryFilter) return false;
+    if (productStatusFilter !== 'all') {
+      const pStatus = p.status || (p.inStock ? 'ativo' : 'indisponivel');
+      if (pStatus !== productStatusFilter) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 space-y-8">
       {/* Top Header Bar */}
@@ -402,12 +571,25 @@ export const AdminPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-stone-200 pb-2">
+      {/* Tabs Navigation Responsiva */}
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto [scrollbar-width:none] -mx-4 px-4 sm:mx-0 sm:px-0 pb-2 border-b border-stone-200 shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveTab('products')}
+          className={`flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] text-xs font-bold rounded-xl transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
+            activeTab === 'products'
+              ? 'bg-black text-white shadow-xs'
+              : 'text-stone-600 hover:text-black hover:bg-stone-100'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span>Produtos ({products.length})</span>
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab('banners')}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] text-xs font-bold rounded-xl transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
             activeTab === 'banners'
               ? 'bg-black text-white shadow-xs'
               : 'text-stone-600 hover:text-black hover:bg-stone-100'
@@ -420,7 +602,7 @@ export const AdminPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('coupons')}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] text-xs font-bold rounded-xl transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
             activeTab === 'coupons'
               ? 'bg-black text-white shadow-xs'
               : 'text-stone-600 hover:text-black hover:bg-stone-100'
@@ -433,7 +615,7 @@ export const AdminPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('orders')}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] text-xs font-bold rounded-xl transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
             activeTab === 'orders'
               ? 'bg-black text-white shadow-xs'
               : 'text-stone-600 hover:text-black hover:bg-stone-100'
@@ -445,21 +627,8 @@ export const AdminPage: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab('products')}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-            activeTab === 'products'
-              ? 'bg-black text-white shadow-xs'
-              : 'text-stone-600 hover:text-black hover:bg-stone-100'
-          }`}
-        >
-          <Package className="w-4 h-4" />
-          <span>Produtos ({products.length})</span>
-        </button>
-
-        <button
-          type="button"
           onClick={() => setActiveTab('customization')}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] text-xs font-bold rounded-xl transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
             activeTab === 'customization'
               ? 'bg-black text-white shadow-xs'
               : 'text-stone-600 hover:text-black hover:bg-stone-100'
@@ -472,7 +641,7 @@ export const AdminPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('settings')}
-          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] text-xs font-bold rounded-xl transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
             activeTab === 'settings'
               ? 'bg-black text-white shadow-xs'
               : 'text-stone-600 hover:text-black hover:bg-stone-100'
@@ -563,27 +732,75 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="font-semibold text-stone-700 block mb-1">
-                    Imagem Desktop (URL principal) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-stone-700 flex items-center gap-1.5">
+                      <Monitor className="w-3.5 h-3.5 text-stone-500" />
+                      <span>Imagem Desktop (Banner Horizontal) *</span>
+                    </label>
+                    <label className="text-[11px] text-stone-500 hover:text-black cursor-pointer font-medium flex items-center gap-1">
+                      <Upload className="w-3 h-3" />
+                      <span>Upload de arquivo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = ev => {
+                              if (ev.target?.result) {
+                                setEditingBanner({ ...editingBanner, desktopImage: ev.target.result as string });
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                   <input
                     type="text"
                     value={editingBanner.desktopImage}
                     onChange={e => setEditingBanner({ ...editingBanner, desktopImage: e.target.value })}
-                    placeholder="/images/banners/banner_primeiravybe.png"
+                    placeholder="URL ou arquivo do banner desktop (1280x427)"
                     className="w-full px-3 py-2 bg-white border border-stone-200 rounded-lg text-xs font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="font-semibold text-stone-700 block mb-1">
-                    Imagem Mobile (opcional para celulares)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-stone-700 flex items-center gap-1.5">
+                      <Smartphone className="w-3.5 h-3.5 text-stone-500" />
+                      <span>Imagem para dispositivos móveis (opcional)</span>
+                    </label>
+                    <label className="text-[11px] text-stone-500 hover:text-black cursor-pointer font-medium flex items-center gap-1">
+                      <Upload className="w-3 h-3" />
+                      <span>Upload mobile</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = ev => {
+                              if (ev.target?.result) {
+                                setEditingBanner({ ...editingBanner, mobileImage: ev.target.result as string });
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                   <input
                     type="text"
                     value={editingBanner.mobileImage || ''}
                     onChange={e => setEditingBanner({ ...editingBanner, mobileImage: e.target.value })}
-                    placeholder="URL ou caminho opcional para celulares"
+                    placeholder="URL ou arquivo específico para telas de celular"
                     className="w-full px-3 py-2 bg-white border border-stone-200 rounded-lg text-xs font-mono"
                   />
                 </div>
@@ -625,15 +842,48 @@ export const AdminPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Preview da Imagem */}
-              {editingBanner.desktopImage && (
-                <div className="p-3 bg-white rounded-xl border border-stone-200 space-y-1">
-                  <span className="text-[11px] font-semibold text-stone-500 block">Prévia:</span>
-                  <div className="w-full aspect-[1280/427] bg-stone-100 rounded-lg overflow-hidden border border-stone-200">
-                    <img src={editingBanner.desktopImage} alt="" className="w-full h-full object-contain" />
+              {/* Preview Duplo (Desktop & Mobile) */}
+              <div className="p-4 bg-stone-50 rounded-xl border border-stone-200 space-y-3">
+                <span className="text-xs font-bold text-stone-700 block">Prévia Responsiva:</span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                  {/* Preview Desktop (2 colunas) */}
+                  <div className="md:col-span-2 space-y-1">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-stone-600">
+                      <Monitor className="w-3.5 h-3.5" />
+                      <span>Versão Desktop (Horizontal)</span>
+                    </div>
+                    <div className="w-full aspect-[1280/427] bg-white rounded-lg overflow-hidden border border-stone-200 flex items-center justify-center">
+                      {editingBanner.desktopImage ? (
+                        <img src={editingBanner.desktopImage} alt="" className="w-full h-full object-contain" />
+                      ) : (
+                        <span className="text-stone-400 text-xs">Sem imagem desktop</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Preview Mobile (1 coluna) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-stone-600">
+                      <span className="flex items-center gap-1.5">
+                        <Smartphone className="w-3.5 h-3.5" />
+                        <span>Versão Mobile</span>
+                      </span>
+                      {editingBanner.mobileImage ? (
+                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">Específica</span>
+                      ) : (
+                        <span className="text-[10px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">Fallback original</span>
+                      )}
+                    </div>
+                    <div className="w-full aspect-[4/5] max-w-[200px] mx-auto bg-white rounded-lg overflow-hidden border border-stone-200 flex items-center justify-center p-1">
+                      <img
+                        src={editingBanner.mobileImage || editingBanner.desktopImage}
+                        alt=""
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-stone-200">
                 <button
@@ -684,13 +934,33 @@ export const AdminPage: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Banner Thumbnail */}
-                <div className="aspect-[1280/427] w-full bg-stone-50 rounded-xl overflow-hidden border border-stone-100 flex items-center justify-center">
-                  <img
-                    src={banner.desktopImage}
-                    alt={banner.altText}
-                    className="w-full h-full object-contain"
-                  />
+                {/* Banner Thumbnails */}
+                <div className="space-y-2">
+                  <div className="aspect-[1280/427] w-full bg-stone-50 rounded-xl overflow-hidden border border-stone-100 flex items-center justify-center">
+                    <img
+                      src={banner.desktopImage}
+                      alt={banner.altText}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] px-1">
+                    <span className="text-stone-500 flex items-center gap-1">
+                      <Monitor className="w-3 h-3" />
+                      <span>Desktop</span>
+                    </span>
+                    {banner.mobileImage ? (
+                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                        <Smartphone className="w-3 h-3" />
+                        <span>Mobile Ativo</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
+                        <Smartphone className="w-3 h-3" />
+                        <span>Fallback Original</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="text-[11px] text-stone-500 space-y-0.5">
@@ -1013,8 +1283,73 @@ export const AdminPage: React.FC = () => {
             </div>
           )}
 
-          {/* Tabela de Cupons Cadastrados */}
-          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-xs">
+          {/* VISUALIZAÇÃO MOBILE DE CUPONS */}
+          <div className="block sm:hidden space-y-3">
+            {filteredCoupons.map(coupon => (
+              <div key={coupon.id} className="bg-white rounded-2xl border border-stone-200 p-4 space-y-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-sm text-stone-900 bg-stone-100 px-2.5 py-1 rounded-lg">
+                    {coupon.code}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleCouponActive(coupon)}
+                    className={`px-2.5 py-1 rounded-full font-semibold text-[11px] cursor-pointer transition-colors ${
+                      coupon.active
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-stone-100 text-stone-500 border border-stone-200'
+                    }`}
+                  >
+                    {coupon.active ? 'Ativo' : 'Inativo'}
+                  </button>
+                </div>
+
+                <div className="text-xs space-y-1">
+                  <p className="font-semibold text-stone-800">{coupon.campaignName}</p>
+                  <p className="text-stone-600 font-medium">
+                    Desconto:{' '}
+                    <strong className="text-stone-900">
+                      {coupon.discountType === 'percentage'
+                        ? `${coupon.discountValue}% OFF`
+                        : `R$ ${coupon.discountValue.toFixed(2).replace('.', ',')}`}
+                    </strong>
+                    {coupon.maxDiscount ? ` (Teto R$ ${coupon.maxDiscount})` : ''}
+                  </p>
+                  <p className="text-stone-500">
+                    {coupon.minOrderValue ? `Mínimo: R$ ${coupon.minOrderValue.toFixed(2).replace('.', ',')}` : 'Sem pedido mínimo'}
+                    {coupon.firstPurchaseOnly ? ' · Apenas 1ª compra' : ''}
+                  </p>
+                  <p className="text-stone-400 font-mono text-[11px]">
+                    Usos: {coupon.usedCount} {coupon.totalUsageLimit ? `/ ${coupon.totalUsageLimit}` : ''}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCoupon(coupon);
+                      setIsAddingCoupon(false);
+                    }}
+                    className="min-h-[44px] px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Editar Regras</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCoupon(coupon)}
+                    className="min-h-[44px] px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabela Desktop de Cupons Cadastrados */}
+          <div className="hidden sm:block bg-white rounded-xl border border-stone-200 overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-stone-50 border-b border-stone-200 text-stone-500 font-semibold uppercase tracking-wider">
@@ -1139,7 +1474,79 @@ export const AdminPage: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-xs">
+            <>
+              {/* VISUALIZAÇÃO MOBILE DE PEDIDOS */}
+              <div className="block sm:hidden space-y-3">
+                {orders.map(ord => (
+                  <div key={ord.id} className="bg-white rounded-2xl border border-stone-200 p-4 space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-xs text-stone-900 bg-stone-100 px-2 py-0.5 rounded-md">
+                        #{ord.id}
+                      </span>
+                      <span className="text-[11px] text-stone-500">
+                        {new Date(ord.createdAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+
+                    <div className="text-xs space-y-1">
+                      <p className="font-bold text-stone-900 text-sm">{ord.customer.name}</p>
+                      <p className="font-mono text-stone-600">
+                        <a
+                          href={`https://wa.me/${ord.customer.whatsapp.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline text-black font-semibold"
+                        >
+                          {ord.customer.whatsapp}
+                        </a>
+                      </p>
+                      <p className="text-stone-600 text-[11px] pt-1">
+                        {ord.items.map(it => `${it.quantity}x ${it.name}`).join(', ')}
+                      </p>
+                      {ord.appliedCoupon && (
+                        <p className="text-emerald-700 font-bold font-mono text-[11px]">
+                          Cupom: {ord.appliedCoupon.code} (-R$ {ord.discountAmount})
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                      <span className="text-xs text-stone-500">Total do Pedido:</span>
+                      <span className="font-mono font-bold text-stone-900 text-sm">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ord.total)}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-2 pt-2 border-t border-stone-100">
+                      <label className="text-[11px] font-semibold text-stone-600">Status do Pedido:</label>
+                      <select
+                        value={ord.status}
+                        onChange={e => handleUpdateOrderStatus(ord.id, e.target.value as any)}
+                        className="w-full h-11 px-3 bg-stone-50 border border-stone-300 rounded-xl text-xs font-semibold cursor-pointer"
+                      >
+                        <option value="pendente">Aguardando confirmação</option>
+                        <option value="em_producao">Em Produção</option>
+                        <option value="concluido">Concluído</option>
+                        <option value="cancelado">Cancelado</option>
+                      </select>
+
+                      {ord.hasCustomArtwork && (
+                        <button
+                          type="button"
+                          onClick={() => handleViewOrderArtwork(ord)}
+                          className="w-full min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 bg-black text-white rounded-xl text-xs font-bold hover:bg-stone-800 transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>Ver Arte da Caneca</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tabela Desktop de Pedidos */}
+              <div className="hidden sm:block bg-white rounded-xl border border-stone-200 overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-stone-50 border-b border-stone-200 text-stone-500 font-semibold uppercase tracking-wider">
@@ -1220,6 +1627,7 @@ export const AdminPage: React.FC = () => {
                 </table>
               </div>
             </div>
+            </>
           )}
 
           {/* Artwork Modal */}
@@ -1275,185 +1683,401 @@ export const AdminPage: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* ABA: PRODUTOS                                                             */}
+      {/* ABA: PRODUTOS (Gestão Completa de Catálogo)                               */}
       {/* ========================================================================= */}
       {activeTab === 'products' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-stone-900">
-              Produtos Cadastrados
-            </h2>
-            <button
-              type="button"
-              onClick={() => {
-                const newP: Product = {
-                  id: `prod-${Date.now()}`,
-                  name: 'Novo Produto',
-                  slug: `novo-produto-${Date.now()}`,
-                  category: 'canecas',
-                  categoryLabel: 'Canecas',
-                  description: 'Descrição do novo produto...',
-                  price: 49.90,
-                  minQuantity: 1,
-                  images: ['/images/mug_white_product.png'],
-                  inStock: true,
-                  isCustomizable: false,
-                  isFeatured: false,
-                  specs: { dimensions: 'Dimensões padrão' },
-                };
-                setEditingProduct(newP);
-                setIsAddingProduct(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-black text-white text-xs font-semibold rounded-lg hover:bg-stone-800 transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Cadastrar Novo Produto</span>
-            </button>
+          {/* Header da aba */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-bold text-stone-900">
+                Gerenciamento de Produtos ({products.length})
+              </h2>
+              <p className="text-xs text-stone-500">
+                Cadastre novos itens, organize preços, controle estoque e configure o personalizador do estúdio.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 min-h-[44px] bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                <FolderPlus className="w-4 h-4 text-stone-600" />
+                <span>Gerenciar Categorias</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingProduct(null);
+                  setIsAddingProduct(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 min-h-[44px] bg-black text-white text-xs font-bold rounded-xl hover:bg-stone-800 transition-colors cursor-pointer shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Cadastrar Novo Produto</span>
+              </button>
+            </div>
           </div>
 
-          {/* Product Edit Modal */}
-          {editingProduct && (
-            <div className="p-6 bg-stone-50 rounded-2xl border border-stone-300 space-y-4">
-              <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-                <h3 className="text-sm font-bold text-stone-900">
-                  {isAddingProduct ? 'Novo Produto' : `Editar: ${editingProduct.name}`}
-                </h3>
+          {/* Barra de Filtros e Busca */}
+          <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={productSearch}
+                onChange={e => setProductSearch(e.target.value)}
+                placeholder="Buscar por nome, SKU ou categoria..."
+                className="w-full h-10 pl-9 pr-3 bg-white border border-stone-200 rounded-xl text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-black"
+              />
+              {productSearch && (
                 <button
                   type="button"
-                  onClick={() => setEditingProduct(null)}
-                  className="p-1 text-stone-400 hover:text-stone-700"
+                  onClick={() => setProductSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-black cursor-pointer"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <label className="font-semibold text-stone-700 block mb-1">Nome do Produto</label>
-                  <input
-                    type="text"
-                    value={editingProduct.name}
-                    onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-white border border-stone-200 rounded-lg text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="font-semibold text-stone-700 block mb-1">Preço (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editingProduct.price}
-                    onChange={e => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-white border border-stone-200 rounded-lg text-xs font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-stone-200">
-                <button
-                  type="button"
-                  onClick={() => setEditingProduct(null)}
-                  className="px-3 py-1.5 text-xs text-stone-600 hover:text-black cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveProduct(editingProduct)}
-                  className="px-4 py-1.5 bg-black text-white text-xs font-semibold rounded-lg hover:bg-stone-800 cursor-pointer"
-                >
-                  Salvar Alterações
-                </button>
-              </div>
+              )}
             </div>
-          )}
 
-          {/* Products Table */}
-          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-stone-50 border-b border-stone-200 text-stone-500 font-semibold uppercase tracking-wider">
-                  <tr>
-                    <th className="p-3">Produto</th>
-                    <th className="p-3">Categoria</th>
-                    <th className="p-3">Preço</th>
-                    <th className="p-3">Estoque</th>
-                    <th className="p-3">Personalizador</th>
-                    <th className="p-3 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100">
-                  {products.map(prod => (
-                    <tr key={prod.id} className="hover:bg-stone-50/70">
-                      <td className="p-3 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-md bg-stone-100 overflow-hidden p-1 shrink-0 flex items-center justify-center">
-                          <img src={prod.images[0]} alt="" className="w-full h-full object-contain" />
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Filtro por Categoria */}
+              <select
+                value={productCategoryFilter}
+                onChange={e => setProductCategoryFilter(e.target.value)}
+                className="h-10 px-3 bg-white border border-stone-200 rounded-xl text-xs font-medium focus:outline-hidden cursor-pointer"
+              >
+                <option value="all">Todas as Categorias</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Filtro por Status */}
+              <select
+                value={productStatusFilter}
+                onChange={e => setProductStatusFilter(e.target.value as any)}
+                className="h-10 px-3 bg-white border border-stone-200 rounded-xl text-xs font-medium focus:outline-hidden cursor-pointer"
+              >
+                <option value="all">Todos os Status</option>
+                <option value="ativo">🟢 Ativos</option>
+                <option value="indisponivel">🟡 Indisponíveis</option>
+                <option value="rascunho">⚪ Rascunhos</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Estado Vazio de Produtos */}
+          {filteredProducts.length === 0 ? (
+            <div className="py-14 text-center bg-white rounded-2xl border border-stone-200 p-6 space-y-3">
+              <Package className="w-8 h-8 text-stone-400 mx-auto" />
+              <h3 className="text-sm font-bold text-stone-800">Nenhum produto encontrado</h3>
+              <p className="text-xs text-stone-500 max-w-md mx-auto">
+                {productSearch || productCategoryFilter !== 'all' || productStatusFilter !== 'all'
+                  ? 'Tente ajustar os filtros ou a busca para localizar o item.'
+                  : 'Nenhum produto cadastrado ainda. Clique no botão acima para adicionar o primeiro produto.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* VISUALIZAÇÃO MOBILE: CARDS RESPONSIVOS */}
+              <div className="block sm:hidden space-y-3">
+                {filteredProducts.map(prod => {
+                  const pStatus = prod.status || (prod.inStock ? 'ativo' : 'indisponivel');
+                  return (
+                    <div
+                      key={prod.id}
+                      className="bg-white rounded-2xl border border-stone-200 p-4 space-y-3 shadow-xs"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-16 h-16 rounded-xl bg-stone-100 overflow-hidden p-1 shrink-0 flex items-center justify-center border border-stone-200">
+                          <img
+                            src={prod.coverImage || prod.images[0]}
+                            alt=""
+                            className="w-full h-full object-contain"
+                          />
                         </div>
-                        <span className="font-semibold text-stone-900">{prod.name}
-                          <span className="block font-mono text-[11px] text-stone-400">SKU {prod.sku}</span></span>
-                      </td>
-                      <td className="p-3 text-stone-600">{prod.categoryLabel}</td>
-                      <td className="p-3 font-mono font-semibold text-stone-900">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}
-                      </td>
-                      <td className="p-3">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleProductStock(prod.id)}
-                          className={`px-2 py-0.5 rounded-sm font-semibold text-[11px] cursor-pointer ${
-                            prod.inStock
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200'
-                          }`}
-                        >
-                          {prod.inStock ? 'Disponível' : 'Esgotado'}
-                        </button>
-                      </td>
-                      <td className="p-3">
-                        {prod.isCustomizable ? (
-                          <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5" /> Ativo
-                          </span>
-                        ) : (
-                          <span className="text-stone-400">Padrão</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right space-x-2">
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded-sm">
+                              {prod.sku || 'SKU'}
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                pStatus === 'ativo'
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  : pStatus === 'rascunho'
+                                  ? 'bg-stone-100 text-stone-600 border border-stone-300'
+                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              }`}
+                            >
+                              {pStatus === 'ativo' ? 'Ativo' : pStatus === 'rascunho' ? 'Rascunho' : 'Esgotado'}
+                            </span>
+                            {prod.badgeText && (
+                              <span className="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-sm">
+                                {prod.badgeText}
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="font-bold text-stone-900 text-sm truncate mt-1">
+                            {prod.name}
+                          </h3>
+
+                          <div className="flex items-baseline gap-2 mt-1">
+                            <span className="font-mono font-bold text-stone-900 text-sm">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}
+                            </span>
+                            {prod.promotionalPrice && (
+                              <span className="font-mono text-xs text-stone-400 line-through">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.promotionalPrice)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-stone-500 pt-2 border-t border-stone-100">
+                        <span>Categoria: <strong className="text-stone-700">{prod.categoryLabel}</strong></span>
+                        <span>{prod.isCustomizable ? '🎨 Personalizável' : '📦 Padrão'}</span>
+                      </div>
+
+                      {/* Ações Mobile com touch targets confortáveis */}
+                      <div className="grid grid-cols-4 gap-2 pt-2 border-t border-stone-100">
                         <button
                           type="button"
                           onClick={() => handleToggleProductFeatured(prod.id)}
-                          aria-pressed={prod.isFeatured}
-                          className={`p-1 cursor-pointer ${prod.isFeatured ? 'text-amber-500' : 'text-stone-300 hover:text-stone-500'}`}
-                          title={prod.isFeatured ? 'Remover destaque da Home' : 'Destacar na Home'}
+                          className={`min-h-[44px] flex items-center justify-center rounded-xl border transition-colors cursor-pointer ${
+                            prod.isFeatured ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-stone-50 border-stone-200 text-stone-500'
+                          }`}
+                          title="Destaque na Home"
                         >
-                          <Star className="w-3.5 h-3.5" fill={prod.isFeatured ? 'currentColor' : 'none'} />
+                          <Star className="w-4 h-4" fill={prod.isFeatured ? 'currentColor' : 'none'} />
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicateProduct(prod)}
+                          className="min-h-[44px] flex items-center justify-center rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
+                          title="Duplicar Produto"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => {
                             setEditingProduct(prod);
                             setIsAddingProduct(false);
                           }}
-                          className="p-1 text-stone-600 hover:text-black cursor-pointer"
-                          title="Editar"
+                          className="min-h-[44px] flex items-center justify-center gap-1 col-span-1 rounded-xl bg-black text-white font-bold text-xs hover:bg-stone-800 transition-colors cursor-pointer"
+                          title="Editar Produto"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-4 h-4" />
                         </button>
+
                         <button
                           type="button"
                           onClick={() => handleDeleteProduct(prod.id)}
-                          className="p-1 text-stone-400 hover:text-rose-600 cursor-pointer"
-                          title="Excluir"
+                          className="min-h-[44px] flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                          title="Excluir Produto"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* VISUALIZAÇÃO DESKTOP: TABELA COMPLETA */}
+              <div className="hidden sm:block bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-stone-50 border-b border-stone-200 text-stone-500 font-semibold uppercase tracking-wider">
+                      <tr>
+                        <th className="p-3.5">Produto</th>
+                        <th className="p-3.5">Categoria</th>
+                        <th className="p-3.5">Preço</th>
+                        <th className="p-3.5">Estoque</th>
+                        <th className="p-3.5">Status</th>
+                        <th className="p-3.5">Personalização</th>
+                        <th className="p-3.5 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {filteredProducts.map(prod => {
+                        const pStatus = prod.status || (prod.inStock ? 'ativo' : 'indisponivel');
+                        return (
+                          <tr key={prod.id} className="hover:bg-stone-50/70 transition-colors">
+                            <td className="p-3.5 flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-xl bg-stone-100 overflow-hidden p-1 shrink-0 flex items-center justify-center border border-stone-200">
+                                <img
+                                  src={prod.coverImage || prod.images[0]}
+                                  alt=""
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-stone-900 text-sm truncate max-w-[220px]">
+                                    {prod.name}
+                                  </span>
+                                  {prod.badgeText && (
+                                    <span className="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded-xs shrink-0">
+                                      {prod.badgeText}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="block font-mono text-[11px] text-stone-400 mt-0.5">
+                                  SKU: {prod.sku || 'Nenhum'}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="p-3.5">
+                              <span className="font-medium text-stone-800">{prod.categoryLabel}</span>
+                            </td>
+
+                            <td className="p-3.5 font-mono">
+                              <span className="font-bold text-stone-900 text-sm">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}
+                              </span>
+                              {prod.promotionalPrice && (
+                                <span className="block text-[11px] text-stone-400 line-through">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.promotionalPrice)}
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleProductStock(prod.id)}
+                                className={`px-2.5 py-1 rounded-md font-semibold text-[11px] cursor-pointer transition-colors ${
+                                  prod.inStock
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                }`}
+                              >
+                                {prod.inStock ? 'Disponível' : 'Esgotado'}
+                              </button>
+                            </td>
+
+                            <td className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleProductStatus(prod)}
+                                className={`px-2.5 py-1 rounded-md font-semibold text-[11px] cursor-pointer transition-colors ${
+                                  pStatus === 'ativo'
+                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                    : pStatus === 'rascunho'
+                                    ? 'bg-stone-100 text-stone-600 border border-stone-300'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                }`}
+                                title="Clique para alternar o status"
+                              >
+                                {pStatus === 'ativo' ? '🟢 Ativo' : pStatus === 'rascunho' ? '⚪ Rascunho' : '🟡 Indisponível'}
+                              </button>
+                            </td>
+
+                            <td className="p-3.5">
+                              {prod.isCustomizable ? (
+                                <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>{prod.customizationType === 'caneca_2d' ? 'Simulador 2D' : 'Upload'}</span>
+                                </span>
+                              ) : (
+                                <span className="text-stone-400">Padrão</span>
+                              )}
+                            </td>
+
+                            <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleProductFeatured(prod.id)}
+                                aria-pressed={prod.isFeatured}
+                                className={`p-1.5 rounded-lg hover:bg-stone-100 cursor-pointer transition-colors ${
+                                  prod.isFeatured ? 'text-amber-500' : 'text-stone-300 hover:text-stone-500'
+                                }`}
+                                title={prod.isFeatured ? 'Remover destaque da Home' : 'Destacar na Home'}
+                              >
+                                <Star className="w-4 h-4" fill={prod.isFeatured ? 'currentColor' : 'none'} />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateProduct(prod)}
+                                className="p-1.5 rounded-lg text-stone-500 hover:text-black hover:bg-stone-100 cursor-pointer transition-colors"
+                                title="Duplicar Produto"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingProduct(prod);
+                                  setIsAddingProduct(false);
+                                }}
+                                className="p-1.5 rounded-lg text-stone-600 hover:text-black hover:bg-stone-100 cursor-pointer transition-colors"
+                                title="Editar Produto"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteProduct(prod.id)}
+                                className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
+                                title="Excluir Produto"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Modal Completo de Produto */}
+          {(editingProduct !== null || isAddingProduct) && (
+            <ProductAdminModal
+              isOpen={editingProduct !== null || isAddingProduct}
+              onClose={() => {
+                setEditingProduct(null);
+                setIsAddingProduct(false);
+              }}
+              product={editingProduct}
+              isAdding={isAddingProduct}
+              categories={categories}
+              onSave={handleSaveProduct}
+              onOpenCategoryManager={() => setIsCategoryModalOpen(true)}
+            />
+          )}
+
+          {/* Modal de Gestão de Categorias */}
+          {isCategoryModalOpen && (
+            <CategoryAdminModal
+              isOpen={isCategoryModalOpen}
+              onClose={() => setIsCategoryModalOpen(false)}
+              categories={categories}
+              onSaveCategory={handleSaveCategory}
+              onDeleteCategory={handleDeleteCategory}
+            />
+          )}
         </div>
       )}
 

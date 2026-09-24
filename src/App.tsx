@@ -9,6 +9,7 @@ import { SearchModal } from './components/SearchModal';
 import { HomePage } from './pages/HomePage';
 import { getSeo } from './seo';
 import { WhatsAppFab } from './components/WhatsAppFab';
+import { AuthModal } from './components/AuthModal';
 const CatalogPage = lazy(() => import('./pages/CatalogPage').then(m => ({ default: m.CatalogPage })));
 const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage').then(m => ({ default: m.ProductDetailPage })));
 const PersonalizeHubPage = lazy(() => import('./pages/PersonalizeHubPage').then(m => ({ default: m.PersonalizeHubPage })));
@@ -80,6 +81,7 @@ export function App() {
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/cadastro" element={<RegisterPage />} />
+                <Route path="/register" element={<RegisterPage />} />
                 <Route path="/minha-conta" element={<CustomerAccountPage />} />
                 <Route path="/esqueci-minha-senha" element={<ForgotPasswordPage />} />
                 <Route path="/sobre" element={<AboutPage />} />
@@ -105,6 +107,9 @@ export function App() {
               isOpen={isSearchOpen}
               onClose={() => setIsSearchOpen(false)}
             />
+
+            {/* Modal Premium de Autenticação */}
+            <AuthModal />
           </div>
         </CartProvider>
       </AuthProvider>

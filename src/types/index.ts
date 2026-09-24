@@ -6,6 +6,13 @@ export interface ProductColor {
   imagePreviewUrl?: string;
 }
 
+export interface CustomAttribute {
+  id?: string;
+  name: string;
+  value: string;
+  unit?: string;
+}
+
 export interface ProductSpecs {
   dimensions?: string; // e.g. "8 cm × 9,5 cm"
   diameter?: string;   // e.g. "8 cm"
@@ -16,24 +23,41 @@ export interface ProductSpecs {
   weight?: string;     // e.g. "330 g"
   colors?: ProductColor[];
   sizes?: string[];
+  customAttributes?: CustomAttribute[];
 }
+
+export type ProductStatus = 'ativo' | 'indisponivel' | 'rascunho';
 
 export interface Product {
   id: string;
   sku?: string; // ex.: CAN-001
   name: string;
   slug: string;
-  category: 'canecas' | 'camisas' | 'bags' | 'presentes';
+  category: string;
   categoryLabel: string;
   description: string;
+  shortDescription?: string;
   price: number;
+  promotionalPrice?: number;
+  costPrice?: number;
   minQuantity: number;
+  maxQuantity?: number;
+  manageStock?: boolean;
+  stockQuantity?: number;
+  allowBackorders?: boolean;
   images: string[];
+  coverImage?: string;
   inStock: boolean;
+  status?: ProductStatus;
   isCustomizable: boolean;
+  customizationType?: 'caneca_2d' | 'upload_imagem' | 'upload_logo' | 'texto' | 'nenhum';
   isFeatured: boolean;
+  showInCatalog?: boolean;
+  showInHome?: boolean;
   specs: ProductSpecs;
   badgeText?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CustomizationData {
@@ -164,10 +188,10 @@ export interface StoreSettings {
 }
 
 export interface CategoryInfo {
-  id: 'canecas' | 'camisas' | 'bags' | 'presentes';
+  id: string;
   name: string;
-  tagline: string;
-  image: string;
-  productCount: number;
-  customizable: boolean;
+  tagline?: string;
+  image?: string;
+  productCount?: number;
+  customizable?: boolean;
 }

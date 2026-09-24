@@ -1,4 +1,4 @@
-import { HomeBanner, Coupon, Order, CustomerUser, AppliedCouponInfo, CartItem } from '../types';
+import { HomeBanner, Coupon, Order, CustomerUser, AppliedCouponInfo, CartItem, Product, CategoryInfo } from '../types';
 
 const TOKEN_KEY = 'vybe_customer_token';
 const ADMIN_TOKEN_KEY = 'vybe_admin_token';
@@ -431,6 +431,140 @@ export const apiService = {
       throw new Error(result.error || 'Erro ao redefinir senha.');
     }
     return result.message;
+  },
+
+  // =========================================================================
+  // Produtos e Categorias
+  // =========================================================================
+  async getProducts(includeDrafts = false): Promise<Product[]> {
+    try {
+      const token = this.getAdminToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/products${includeDrafts ? '?includeDrafts=true' : ''}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        return data;
+      }
+    } catch (e) {
+      console.warn('API /api/products indisponível, usando fallback local:', e);
+    }
+    return [];
+  },
+
+  async createProduct(product: Partial<Product>): Promise<Product> {
+    const token = this.getAdminToken() || 'vybe_admin_secret_token_2026';
+    const res = await fetch('/api/products', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(product),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Erro ao cadastrar produto.');
+    }
+    return res.json();
+  },
+
+  async updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
+    const token = this.getAdminToken() || 'vybe_admin_secret_token_2026';
+    const res = await fetch(`/api/products/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updates),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Erro ao atualizar produto.');
+    }
+    return res.json();
+  },
+
+  async deleteProduct(id: string): Promise<void> {
+    const token = this.getAdminToken() || 'vybe_admin_secret_token_2026';
+    const res = await fetch(`/api/products/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Erro ao excluir produto.');
+    }
+  },
+
+  async getCategories(): Promise<CategoryInfo[]> {
+    try {
+      const res = await fetch('/api/categories');
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('API /api/categories indisponível:', e);
+    }
+    return [];
+  },
+
+  async createCategory(cat: Partial<CategoryInfo>): Promise<CategoryInfo> {
+    const token = this.getAdminToken() || 'vybe_admin_secret_token_2026';
+    const res = await fetch('/api/categories', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(cat),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Erro ao criar categoria.');
+    }
+    return res.json();
+  },
+
+  async updateCategory(id: string, updates: Partial<CategoryInfo>): Promise<CategoryInfo> {
+    const token = this.getAdminToken() || 'vybe_admin_secret_token_2026';
+    const res = await fetch(`/api/categories/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updates),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Erro ao atualizar categoria.');
+    }
+    return res.json();
+  },
+
+  async deleteCategory(id: string): Promise<void> {
+    const token = this.getAdminToken() || 'vybe_admin_secret_token_2026';
+    const res = await fetch(`/api/categories/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Erro ao excluir categoria.');
+    }
   },
 
   async adminLogin(passcode: string): Promise<boolean> {

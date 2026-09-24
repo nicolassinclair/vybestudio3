@@ -17,7 +17,7 @@ export const INITIAL_CATEGORIES: CategoryInfo[] = [
     id: 'canecas',
     name: 'Canecas',
     tagline: 'Cerâmica premium com impressão fotográfica de alta durabilidade',
-    image: '/images/mug_white_product.png',
+    image: 'https://i.postimg.cc/mD4fkBtT/categoria-canecas.png',
     productCount: 1,
     customizable: true,
   },
@@ -25,7 +25,7 @@ export const INITIAL_CATEGORIES: CategoryInfo[] = [
     id: 'camisas',
     name: 'Camisas',
     tagline: 'Todos os tipos de camisa, personalizadas com a sua arte',
-    image: '/images/product_camisa_oversized_1790196757274.jpg',
+    image: 'https://i.postimg.cc/br6KmnLJ/categoria-camisas.png',
     productCount: 1,
     customizable: false, // Em breve no personalizador
   },
@@ -33,7 +33,7 @@ export const INITIAL_CATEGORIES: CategoryInfo[] = [
     id: 'bags',
     name: 'Bags',
     tagline: 'Tote bags reforçadas para o dia a dia e eventos',
-    image: '/images/product_tote_bag_1790196766194.jpg',
+    image: 'https://i.postimg.cc/zBkmR6g7/categoria-bags.png',
     productCount: 1,
     customizable: false,
   },
@@ -41,7 +41,7 @@ export const INITIAL_CATEGORIES: CategoryInfo[] = [
     id: 'presentes',
     name: 'Presentes',
     tagline: 'Kits e embalagens pensadas para datas e ocasiões especiais',
-    image: '/images/product_gift_box_1790196776172.jpg',
+    image: 'https://i.postimg.cc/2j2Rjpmr/categoria-presentes.png',
     productCount: 1,
     customizable: false,
   },
@@ -184,17 +184,26 @@ export function ensureProductSkus(products: Product[]): { list: Product[]; chang
   return { list, changed };
 }
 
-const MIGRATION_KEY = 'vybe_text_migration_1';
+const MIGRATION_KEY = 'vybe_text_migration_2';
 
-// Atualiza uma única vez textos antigos de camisas que ficaram salvos no navegador
+// Atualiza textos antigos e imagens oficiais das categorias salvas no navegador
 function runTextMigration(): void {
   try {
-    if (localStorage.getItem(MIGRATION_KEY)) return;
     const rawCats = localStorage.getItem(KEYS.CATEGORIES);
     if (rawCats) {
       const cats = JSON.parse(rawCats);
       let changed = false;
+      const officialImages: Record<string, string> = {
+        canecas: 'https://i.postimg.cc/mD4fkBtT/categoria-canecas.png',
+        camisas: 'https://i.postimg.cc/br6KmnLJ/categoria-camisas.png',
+        bags: 'https://i.postimg.cc/zBkmR6g7/categoria-bags.png',
+        presentes: 'https://i.postimg.cc/2j2Rjpmr/categoria-presentes.png',
+      };
       cats.forEach((c: any) => {
+        if (officialImages[c.id] && c.image !== officialImages[c.id]) {
+          c.image = officialImages[c.id];
+          changed = true;
+        }
         if (c.id === 'camisas' && /streetwear|algod/i.test(c.tagline || '')) {
           c.tagline = 'Todos os tipos de camisa, personalizadas com a sua arte';
           changed = true;
@@ -202,6 +211,7 @@ function runTextMigration(): void {
       });
       if (changed) localStorage.setItem(KEYS.CATEGORIES, JSON.stringify(cats));
     }
+    if (localStorage.getItem(MIGRATION_KEY)) return;
     const rawProds = localStorage.getItem(KEYS.PRODUCTS);
     if (rawProds) {
       const prods = JSON.parse(rawProds);

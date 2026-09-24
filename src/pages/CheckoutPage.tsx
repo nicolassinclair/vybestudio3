@@ -20,7 +20,7 @@ import { Order, CustomerDetails } from '../types';
 
 export const CheckoutPage: React.FC = () => {
   const { cart, subtotal, discountAmount, total, appliedCoupon, totalItems, clearCart } = useCart();
-  const { customer: authCustomer, refreshMyOrders } = useAuth();
+  const { customer: authCustomer, refreshMyOrders, openAuthModal } = useAuth();
   const navigate = useNavigate();
   const settings = storageService.getSettings();
 
@@ -325,10 +325,18 @@ export const CheckoutPage: React.FC = () => {
                 As informações abaixo serão anexadas à sua mensagem de pedido.
               </p>
             </div>
-            {authCustomer && (
+            {authCustomer ? (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">
                 Conta Conectada
               </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openAuthModal('login')}
+                className="inline-flex items-center gap-1 text-xs text-stone-700 hover:text-black font-semibold bg-stone-100 hover:bg-stone-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+              >
+                Já tem conta? Entrar
+              </button>
             )}
           </div>
 

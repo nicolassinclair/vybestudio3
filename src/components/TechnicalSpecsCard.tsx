@@ -11,27 +11,41 @@ export const TechnicalSpecsCard: React.FC<TechnicalSpecsCardProps> = ({ product 
   // Build the list of technical characteristics based on product data and requirements
   const items: { label: string; value: string }[] = [];
 
-  if (category === 'canecas') {
-    items.push({ label: 'Dimensões físicas', value: specs.dimensions || '8 cm × 9,5 cm' });
-    items.push({ label: 'Área de impressão', value: specs.printArea || '21 cm × 9,5 cm' });
-    items.push({ label: 'Capacidade', value: specs.capacity || '325 ml' });
-    items.push({ label: 'Material', value: specs.material || 'Cerâmica Resinada Classe AAA' });
-    items.push({ label: 'Peso aproximado', value: specs.weight || '330 g' });
-  } else if (category === 'camisas') {
-    items.push({ label: 'Tamanhos', value: specs.dimensions || 'P, M, G, GG e XG' });
-    if (specs.material) items.push({ label: 'Material', value: specs.material });
-    items.push({ label: 'Peso aproximado', value: specs.weight || '280 g' });
-  } else if (category === 'bags') {
-    items.push({ label: 'Dimensões físicas', value: specs.dimensions || '38 cm × 42 cm (alça de 60 cm)' });
-    items.push({ label: 'Capacidade', value: specs.capacity || '18 litros' });
-    items.push({ label: 'Material', value: specs.material || 'Lona 100% Algodão Cru 280g' });
-  } else {
-    // Generic fallback for any other product category
-    if (specs.dimensions) items.push({ label: 'Dimensões', value: specs.dimensions });
-    if (specs.printArea) items.push({ label: 'Área de personalização', value: specs.printArea });
-    if (specs.capacity) items.push({ label: 'Capacidade', value: specs.capacity });
-    if (specs.material) items.push({ label: 'Material', value: specs.material });
-    if (specs.weight) items.push({ label: 'Peso aproximado', value: specs.weight });
+  // 1. Se o produto tiver atributos personalizados cadastrados pelo administrador
+  if (specs.customAttributes && specs.customAttributes.length > 0) {
+    specs.customAttributes.forEach(attr => {
+      if (attr.name && attr.value) {
+        items.push({
+          label: attr.name,
+          value: attr.unit ? `${attr.value} ${attr.unit}` : attr.value,
+        });
+      }
+    });
+  }
+
+  // 2. Se não houver atributos dinâmicos ou para campos estruturados clássicos
+  if (items.length === 0) {
+    if (category === 'canecas') {
+      items.push({ label: 'Dimensões físicas', value: specs.dimensions || '8 cm × 9,5 cm' });
+      items.push({ label: 'Área de impressão', value: specs.printArea || '21 cm × 9,5 cm' });
+      items.push({ label: 'Capacidade', value: specs.capacity || '325 ml' });
+      items.push({ label: 'Material', value: specs.material || 'Cerâmica Resinada Classe AAA' });
+      items.push({ label: 'Peso aproximado', value: specs.weight || '330 g' });
+    } else if (category === 'camisas') {
+      items.push({ label: 'Tamanhos', value: specs.dimensions || 'P, M, G, GG e XG' });
+      if (specs.material) items.push({ label: 'Material', value: specs.material });
+      items.push({ label: 'Peso aproximado', value: specs.weight || '280 g' });
+    } else if (category === 'bags') {
+      items.push({ label: 'Dimensões físicas', value: specs.dimensions || '38 cm × 42 cm (alça de 60 cm)' });
+      items.push({ label: 'Capacidade', value: specs.capacity || '18 litros' });
+      items.push({ label: 'Material', value: specs.material || 'Lona 100% Algodão Cru 280g' });
+    } else {
+      if (specs.dimensions) items.push({ label: 'Dimensões', value: specs.dimensions });
+      if (specs.printArea) items.push({ label: 'Área de personalização', value: specs.printArea });
+      if (specs.capacity) items.push({ label: 'Capacidade', value: specs.capacity });
+      if (specs.material) items.push({ label: 'Material', value: specs.material });
+      if (specs.weight) items.push({ label: 'Peso aproximado', value: specs.weight });
+    }
   }
 
   if (items.length === 0) return null;

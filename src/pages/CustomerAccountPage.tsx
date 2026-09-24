@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   User,
   ShoppingBag,
@@ -24,8 +24,16 @@ import { getArtworkFromIndexedDB } from '../services/indexedDb';
 export const CustomerAccountPage: React.FC = () => {
   const { customer, customerLoading, customerLogout, updateCustomerProfile, myOrders, refreshMyOrders } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'orders' | 'profile'>('orders');
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'orders' | 'profile'>(tabParam === 'orders' ? 'orders' : 'profile');
+
+  useEffect(() => {
+    if (tabParam === 'orders' || tabParam === 'profile') {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   // Perfil form
   const [profileName, setProfileName] = useState('');

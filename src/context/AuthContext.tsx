@@ -14,6 +14,14 @@ interface AuthContextType {
   myOrders: Order[];
   refreshMyOrders: () => Promise<void>;
 
+  // Modal Premium de Autenticação
+  isAuthModalOpen: boolean;
+  authModalTab: 'login' | 'register' | 'forgot';
+  openAuthModal: (tab?: 'login' | 'register' | 'forgot', onSuccess?: () => void) => void;
+  closeAuthModal: () => void;
+  setAuthModalTab: (tab: 'login' | 'register' | 'forgot') => void;
+  triggerAuthSuccess: () => void;
+
   // Administrador (Painel)
   isAuthenticated: boolean;
   isDemoMode: boolean;
@@ -24,6 +32,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Estado do Modal de Autenticação
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'forgot'>('login');
+  const [authSuccessCallback, setAuthSuccessCallback] = useState<(() => void) | null>(null);
+
   // Estado do Administrador
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
     return !!apiService.getAdminToken() || storageService.isAdminAuthenticated();
@@ -35,6 +48,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [myOrders, setMyOrders] = useState<Order[]>([]);
 
   const isDemoMode = false; // Sistema com persistência e autenticação de produção ativa
+
+  const openAuthModal = useCallback((tab: 'login' | 'register' | 'forgot' = 'login', onSuccess?: () => void) => {
+    setAuthModalTab(tab);
+    if (onSuccess) {
+      setAuthSuccessCallback(() => onSuccess);
+    } else {
+      setAuthSuccessCallback(null);
+    }
+    setIsAuthModalOpen(true);
+  }, []);
+
+  const closeAuthModal = useCallback(() => {
+    setIsAuthModalOpen(false);
+    setAuthSuccessCallback(null);
+  }, []);
+
+  const triggerAuthSuccess = useCallback(() => {
+    if (authSuccessCallback) {
+      try {
+        authSuccessCallback();
+      } catch (e) {
+        console.error('Erro no callback de autenticação:', e);
+      }
+    }
+    closeAuthModal();
+  }, [authSuccessCallback, closeAuthModal]);
 
   // Carrega a sessão do cliente autenticado ao iniciar
   const loadCustomerSession = useCallback(async () => {
@@ -152,6 +191,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateCustomerProfile,
         myOrders,
         refreshMyOrders,
+        isAuthModalOpen,
+        authModalTab,
+        openAuthModal,
+        closeAuthModal,
+        setAuthModalTab,
+        triggerAuthSuccess,
         isAuthenticated: isAdminAuthenticated,
         isDemoMode,
         login,

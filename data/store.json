@@ -3,8 +3,8 @@
     {
       "id": "banner-primeira-compra",
       "name": "Primeira Compra 20% OFF",
-      "desktopImage": "/images/banners/banner_primeiravybe.png",
-      "mobileImage": "/images/banners/banner_primeiravybe.png",
+      "desktopImage": "https://i.postimg.cc/yxrrKP0f/Chat-GPT-Image-24-de-set-de-2026-11-14-29.png",
+      "mobileImage": "",
       "targetUrl": "/personalizar/caneca",
       "altText": "Banner promocional da primeira compra com cupom PRIMEIRAVYBE e 20% de desconto",
       "order": 1,
@@ -14,8 +14,8 @@
     {
       "id": "banner-catalogo-vybe",
       "name": "Catálogo VYBE Studio",
-      "desktopImage": "/images/banners/banner_catalogo.png",
-      "mobileImage": "/images/banners/banner_catalogo.png",
+      "desktopImage": "https://i.postimg.cc/HnQ4Z9B0/Chat-GPT-Image-24-de-set-de-2026-11-22-33.png",
+      "mobileImage": "",
       "targetUrl": "/produtos",
       "altText": "Banner do catálogo com canecas, camisas e presentes personalizados",
       "order": 2,

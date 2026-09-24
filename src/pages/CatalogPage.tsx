@@ -26,6 +26,9 @@ export const CatalogPage: React.FC = () => {
   const filteredProducts = useMemo(() => {
     return products
       .filter(p => {
+        // Ignora rascunhos no catálogo público
+        if (p.status === 'rascunho') return false;
+
         // Category filter
         if (currentCategory !== 'todas' && p.category !== currentCategory) {
           return false;

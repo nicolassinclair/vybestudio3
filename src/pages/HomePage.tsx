@@ -21,7 +21,7 @@ import { HomeBannerCarousel } from '../components/HomeBannerCarousel';
 export const HomePage: React.FC = () => {
   const products = storageService.getProducts();
   const categories = storageService.getCategories();
-  const featuredProducts = products.filter(p => p.isFeatured).slice(0, 12);
+  const featuredProducts = products.filter(p => p.isFeatured && p.status !== 'rascunho').slice(0, 12);
   const settings = storageService.getSettings();
 
   return (
@@ -126,17 +126,123 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Personalização */}
-      <section className="py-10 sm:py-14">
+      {/* ========================================================================= */}
+      {/* 7. BANNER ESTÚDIO CRIATIVO / PERSONALIZAÇÃO                               */}
+      {/* ========================================================================= */}
+      <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center justify-between gap-6 rounded-lg border border-stone-200 bg-snow px-6 py-9 text-center sm:flex-row sm:px-10 sm:py-12 sm:text-left">
-            <div>
-              <h2 className="title-section">Tem uma ideia? Vamos transformar em produto.</h2>
-              <p className="mt-3 max-w-[52ch] text-sm leading-relaxed text-stone-500 sm:text-base">Envie sua arte, veja a prévia e finalize seu pedido.</p>
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#141414] via-[#1c1c1c] to-[#0c0c0c] border border-stone-800/80 shadow-2xl p-6 sm:p-10 lg:p-14 text-white">
+            {/* Subtle decorative background light */}
+            <div className="absolute -top-24 -right-24 w-96 h-96 bg-stone-700/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-stone-800/20 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+              {/* Coluna de texto */}
+              <div className="lg:col-span-7 space-y-4 sm:space-y-6 text-center sm:text-left">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-[11px] font-semibold uppercase tracking-wider text-stone-300">
+                  <Sparkles className="w-3.5 h-3.5 text-stone-200" />
+                  <span>Estúdio Criativo VYBE · Produção Sob Demanda</span>
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                  Tem uma ideia? Vamos transformar em produto.
+                </h2>
+
+                <p className="text-stone-300 text-sm sm:text-base leading-relaxed max-w-2xl">
+                  Do mockup na tela ao produto físico finalizado. Envie sua arte, visualize em tempo real no simulador interativo e garanta peças exclusivas com acabamento profissional.
+                </p>
+
+                {/* 3 Diferenciais */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-left">
+                  <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white/5 border border-white/10">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="block text-xs font-semibold text-white">Simulador 2D</span>
+                      <span className="block text-[11px] text-stone-400">Prévia real no produto</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white/5 border border-white/10">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="block text-xs font-semibold text-white">Alta Definição</span>
+                      <span className="block text-[11px] text-stone-400">Cores fiéis e duradouras</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white/5 border border-white/10">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="block text-xs font-semibold text-white">Sem Pedido Mínimo</span>
+                      <span className="block text-[11px] text-stone-400">A partir de 1 unidade</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ações */}
+                <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                  <Link
+                    to="/personalizar"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white text-stone-950 font-bold text-sm rounded-xl hover:bg-stone-200 transition-all shadow-lg hover:shadow-xl cursor-pointer"
+                  >
+                    <span>Criar meu personalizado</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+
+                  <a
+                    href={`https://wa.me/${settings.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Olá! Tenho uma ideia de produto personalizado e gostaria de tirar algumas dúvidas.')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Falar no WhatsApp</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Coluna visual de destaque */}
+              <div className="lg:col-span-5 flex justify-center">
+                <div className="relative w-full max-w-sm rounded-2xl bg-white/5 border border-white/10 p-5 backdrop-blur-md space-y-4">
+                  <div className="flex items-center justify-between text-xs text-stone-400 pb-2 border-b border-white/10">
+                    <span className="font-semibold text-white">Etapas da sua personalização</span>
+                    <span className="font-mono text-[10px] text-stone-300">100% ONLINE</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
+                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                        1
+                      </div>
+                      <div className="text-xs">
+                        <strong className="block text-white font-semibold">Escolha o produto base</strong>
+                        <span className="text-stone-400 text-[11px]">Canecas de cerâmica, camisas, bags ou presentes</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
+                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                        2
+                      </div>
+                      <div className="text-xs">
+                        <strong className="block text-white font-semibold">Carregue sua estampa ou arte</strong>
+                        <span className="text-stone-400 text-[11px]">Ajuste escala, rotação e posição em tempo real</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
+                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                        3
+                      </div>
+                      <div className="text-xs">
+                        <strong className="block text-white font-semibold">Receba pronto para impressionar</strong>
+                        <span className="text-stone-400 text-[11px]">Produção ágil com controle rigoroso de qualidade</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <Link to="/personalizar" className="inline-flex shrink-0 items-center justify-center rounded-brand bg-ink px-7 py-4 text-[15px] font-semibold text-paper transition-colors duration-200 hover:bg-graphite">
-              Criar meu personalizado
-            </Link>
           </div>
         </div>
       </section>

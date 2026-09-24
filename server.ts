@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import type { HomeBanner, Coupon, Order, CustomerUser, StoreSettings, CartItem } from './src/types/index.ts';
+import type { HomeBanner, Coupon, Order, CustomerUser, StoreSettings, CartItem, Product, CategoryInfo } from './src/types/index.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,15 +20,176 @@ interface DatabaseSchema {
   orders: Order[];
   resetTokens: Array<{ token: string; email: string; expiresAt: number }>;
   sessions: Record<string, { userId: string; role: 'customer' | 'admin'; expiresAt: number }>;
+  products: Product[];
+  categories: CategoryInfo[];
 }
+
+const INITIAL_CATEGORIES: CategoryInfo[] = [
+  {
+    id: 'canecas',
+    name: 'Canecas',
+    tagline: 'Cerâmica premium com impressão fotográfica de alta durabilidade',
+    image: 'https://i.postimg.cc/mD4fkBtT/categoria-canecas.png',
+    productCount: 1,
+    customizable: true,
+  },
+  {
+    id: 'camisas',
+    name: 'Camisas',
+    tagline: 'Todos os tipos de camisa, personalizadas com a sua arte',
+    image: 'https://i.postimg.cc/br6KmnLJ/categoria-camisas.png',
+    productCount: 1,
+    customizable: false,
+  },
+  {
+    id: 'bags',
+    name: 'Bags',
+    tagline: 'Tote bags reforçadas para o dia a dia e eventos',
+    image: 'https://i.postimg.cc/zBkmR6g7/categoria-bags.png',
+    productCount: 1,
+    customizable: false,
+  },
+  {
+    id: 'presentes',
+    name: 'Presentes',
+    tagline: 'Kits e embalagens pensadas para datas e ocasiões especiais',
+    image: 'https://i.postimg.cc/2j2Rjpmr/categoria-presentes.png',
+    productCount: 1,
+    customizable: false,
+  },
+];
+
+const INITIAL_PRODUCTS: Product[] = [
+  {
+    id: 'caneca-ceramica-325ml',
+    sku: 'CAN-001',
+    name: 'Caneca Cerâmica 325ml',
+    slug: 'caneca-ceramica-325ml',
+    category: 'canecas',
+    categoryLabel: 'Canecas',
+    description: 'Caneca cilíndrica de cerâmica resinada de alta qualidade com acabamento brilhante. Ideal para sublimação fotográfica, logos e ilustrações com riqueza de detalhes e fidelidade de cores.',
+    shortDescription: 'Caneca de cerâmica resinada de alta qualidade para personalização com arte e fotos.',
+    price: 39.90,
+    minQuantity: 1,
+    images: [
+      '/images/mug_white_product.png',
+      '/images/mug_dimensions.png',
+      '/images/print_area_guide.png',
+      '/images/mug_mockup.png',
+    ],
+    coverImage: '/images/mug_white_product.png',
+    inStock: true,
+    status: 'ativo',
+    isCustomizable: true,
+    customizationType: 'caneca_2d',
+    isFeatured: true,
+    badgeText: 'Mais Vendido',
+    specs: {
+      dimensions: '8 cm × 9,5 cm',
+      diameter: '8 cm',
+      height: '9,5 cm',
+      printArea: '21 cm × 9,5 cm',
+      capacity: '325 ml',
+      material: 'Cerâmica Resinada Classe AAA',
+      weight: '330 g',
+      colors: [
+        {
+          id: 'branca',
+          name: 'Branca',
+          hex: '#FFFFFF',
+          inStock: true,
+          imagePreviewUrl: '/images/mug_white_product.png',
+        },
+      ],
+    },
+  },
+  {
+    id: 'camiseta-streetwear-oversized',
+    sku: 'CAM-001',
+    name: 'Camiseta Personalizada',
+    slug: 'camiseta-streetwear-heavyweight',
+    category: 'camisas',
+    categoryLabel: 'Camisas',
+    description: 'Camiseta personalizada com a sua arte. Consulte as modelagens e os tecidos disponíveis.',
+    shortDescription: 'Camiseta premium com personalização exclusiva em estampa de alta definição.',
+    price: 89.90,
+    minQuantity: 1,
+    images: [
+      '/images/product_camisa_oversized_1790196757274.jpg',
+    ],
+    coverImage: '/images/product_camisa_oversized_1790196757274.jpg',
+    inStock: true,
+    status: 'ativo',
+    isCustomizable: false,
+    customizationType: 'upload_imagem',
+    isFeatured: true,
+    badgeText: 'Destaque',
+    specs: {
+      dimensions: 'P, M, G, GG e XG',
+      weight: '280 g',
+      sizes: ['P', 'M', 'G', 'GG', 'XG'],
+    },
+  },
+  {
+    id: 'tote-bag-canvas-pesado',
+    sku: 'BAG-001',
+    name: 'Tote Bag Algodão Cru Reforçado',
+    slug: 'tote-bag-algodao-cru',
+    category: 'bags',
+    categoryLabel: 'Bags',
+    description: 'Bolsa ecológica estruturada em lona de algodão cru 100% sustentável. Alças largas reforçadas com costura em X e fundo plano para máxima capacidade diária.',
+    shortDescription: 'Bolsa ecológica estruturada em lona resistente com alças reforçadas.',
+    price: 49.90,
+    minQuantity: 1,
+    images: [
+      '/images/product_tote_bag_1790196766194.jpg',
+    ],
+    coverImage: '/images/product_tote_bag_1790196766194.jpg',
+    inStock: true,
+    status: 'ativo',
+    isCustomizable: false,
+    customizationType: 'upload_logo',
+    isFeatured: true,
+    specs: {
+      dimensions: '38 cm × 42 cm (Alça 60 cm)',
+      material: 'Lona 100% Algodão Cru 280g',
+      capacity: '18 litros',
+    },
+  },
+  {
+    id: 'kit-presente-experiencia-vybe',
+    sku: 'PRE-001',
+    name: 'Kit Gift Box VYBE Experience',
+    slug: 'kit-gift-box-vybe-experience',
+    category: 'presentes',
+    categoryLabel: 'Presentes',
+    description: 'Caixa presente rígida artesanal contendo 1 caneca personalizada, caderno pautado capa dura e fita de fechamento em gorgurão. Embalagem pronta para presentear.',
+    shortDescription: 'Caixa presente rígida artesanal pronta para presentear em datas especiais.',
+    price: 119.90,
+    minQuantity: 1,
+    images: [
+      '/images/product_gift_box_1790196776172.jpg',
+    ],
+    coverImage: '/images/product_gift_box_1790196776172.jpg',
+    inStock: true,
+    status: 'ativo',
+    isCustomizable: false,
+    customizationType: 'nenhum',
+    isFeatured: true,
+    specs: {
+      dimensions: '26 cm × 20 cm × 12 cm',
+      material: 'Cartonagem Rígida Premium',
+    },
+  },
+];
 
 // Banners oficiais iniciais
 const INITIAL_BANNERS: HomeBanner[] = [
   {
     id: 'banner-primeira-compra',
     name: 'Primeira Compra 20% OFF',
-    desktopImage: '/images/banners/banner_primeiravybe.png',
-    mobileImage: '/images/banners/banner_primeiravybe.png',
+    desktopImage: 'https://i.postimg.cc/yxrrKP0f/Chat-GPT-Image-24-de-set-de-2026-11-14-29.png',
+    mobileImage: '',
     targetUrl: '/personalizar/caneca',
     altText: 'Banner promocional da primeira compra com cupom PRIMEIRAVYBE e 20% de desconto',
     order: 1,
@@ -38,8 +199,8 @@ const INITIAL_BANNERS: HomeBanner[] = [
   {
     id: 'banner-catalogo-vybe',
     name: 'Catálogo VYBE Studio',
-    desktopImage: '/images/banners/banner_catalogo.png',
-    mobileImage: '/images/banners/banner_catalogo.png',
+    desktopImage: 'https://i.postimg.cc/HnQ4Z9B0/Chat-GPT-Image-24-de-set-de-2026-11-22-33.png',
+    mobileImage: '',
     targetUrl: '/produtos',
     altText: 'Banner do catálogo com canecas, camisas e presentes personalizados',
     order: 2,
@@ -98,6 +259,14 @@ function initDatabase(): DatabaseSchema {
       if (!data.orders) data.orders = [];
       if (!data.resetTokens) data.resetTokens = [];
       if (!data.sessions) data.sessions = {};
+      if (!data.products || data.products.length === 0) {
+        data.products = INITIAL_PRODUCTS;
+        modified = true;
+      }
+      if (!data.categories || data.categories.length === 0) {
+        data.categories = INITIAL_CATEGORIES;
+        modified = true;
+      }
 
       if (modified) {
         fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
@@ -115,6 +284,8 @@ function initDatabase(): DatabaseSchema {
     orders: [],
     resetTokens: [],
     sessions: {},
+    products: INITIAL_PRODUCTS,
+    categories: INITIAL_CATEGORIES,
   };
 
   fs.writeFileSync(DB_FILE, JSON.stringify(initialDb, null, 2), 'utf-8');
@@ -955,7 +1126,167 @@ async function startServer() {
   });
 
   // =========================================================================
-  // 5. INTEGRAÇÃO VITE (Dev & Prod)
+  // 5. ROTAS DE PRODUTOS E CATEGORIAS (Gestão do Catálogo VYBE)
+  // =========================================================================
+
+  // Listar produtos
+  app.get('/api/products', (req: Request, res: Response) => {
+    const token = extractBearer(req);
+    const session = getSession(token);
+    const isAdmin = (session && session.role === 'admin') || token === 'vybe_admin_secret_token_2026';
+
+    if (isAdmin || req.query.includeDrafts === 'true') {
+      return res.json(db.products);
+    }
+    // Para visitantes regulares, exclui produtos em rascunho
+    const publicProducts = db.products.filter(p => p.status !== 'rascunho');
+    res.json(publicProducts);
+  });
+
+  // Criar produto (Admin)
+  app.post('/api/products', requireAdmin, (req: Request, res: Response) => {
+    const p = req.body;
+    if (!p.name || p.price === undefined) {
+      return res.status(400).json({ error: 'Nome e preço do produto são obrigatórios.' });
+    }
+
+    const newProduct: Product = {
+      id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      sku: p.sku ? String(p.sku).trim() : `PRD-${Date.now().toString().slice(-4)}`,
+      name: String(p.name).trim(),
+      slug: p.slug ? String(p.slug).trim() : String(p.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+      category: p.category || 'canecas',
+      categoryLabel: p.categoryLabel || 'Canecas',
+      description: p.description || '',
+      shortDescription: p.shortDescription || '',
+      price: Number(p.price) || 0,
+      promotionalPrice: p.promotionalPrice !== undefined && p.promotionalPrice !== null && p.promotionalPrice !== '' ? Number(p.promotionalPrice) : undefined,
+      costPrice: p.costPrice !== undefined && p.costPrice !== null && p.costPrice !== '' ? Number(p.costPrice) : undefined,
+      minQuantity: Number(p.minQuantity) || 1,
+      maxQuantity: p.maxQuantity ? Number(p.maxQuantity) : undefined,
+      manageStock: Boolean(p.manageStock),
+      stockQuantity: p.stockQuantity !== undefined ? Number(p.stockQuantity) : undefined,
+      allowBackorders: p.allowBackorders !== undefined ? Boolean(p.allowBackorders) : true,
+      images: Array.isArray(p.images) && p.images.length > 0 ? p.images : ['/images/mug_white_product.png'],
+      coverImage: p.coverImage || (Array.isArray(p.images) && p.images[0] ? p.images[0] : '/images/mug_white_product.png'),
+      inStock: p.inStock !== undefined ? Boolean(p.inStock) : true,
+      status: p.status || 'ativo',
+      isCustomizable: Boolean(p.isCustomizable),
+      customizationType: p.customizationType || (p.isCustomizable ? 'caneca_2d' : 'nenhum'),
+      isFeatured: Boolean(p.isFeatured),
+      specs: p.specs || {},
+      badgeText: p.badgeText ? String(p.badgeText).trim() : undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    db.products.push(newProduct);
+    saveDatabase();
+    res.status(201).json(newProduct);
+  });
+
+  // Atualizar produto (Admin)
+  app.put('/api/products/:id', requireAdmin, (req: Request, res: Response) => {
+    const { id } = req.params;
+    const index = db.products.findIndex(p => p.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Produto não encontrado.' });
+    }
+
+    const current = db.products[index];
+    const updated: Product = {
+      ...current,
+      ...req.body,
+      id: current.id,
+      updatedAt: new Date().toISOString(),
+    };
+
+    db.products[index] = updated;
+    saveDatabase();
+    res.json(updated);
+  });
+
+  // Excluir produto (Admin)
+  app.delete('/api/products/:id', requireAdmin, (req: Request, res: Response) => {
+    const { id } = req.params;
+    const index = db.products.findIndex(p => p.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Produto não encontrado.' });
+    }
+
+    db.products.splice(index, 1);
+    saveDatabase();
+    res.json({ success: true, message: 'Produto excluído com sucesso.' });
+  });
+
+  // Listar categorias
+  app.get('/api/categories', (req: Request, res: Response) => {
+    // Atualiza contagem dinâmica de produtos ativos
+    const updatedCategories = db.categories.map(cat => ({
+      ...cat,
+      productCount: db.products.filter(p => p.category === cat.id && p.status !== 'rascunho').length,
+    }));
+    res.json(updatedCategories);
+  });
+
+  // Criar categoria (Admin)
+  app.post('/api/categories', requireAdmin, (req: Request, res: Response) => {
+    const { id, name, tagline, image, customizable } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'O nome da categoria é obrigatório.' });
+    }
+
+    const cleanId = id ? String(id).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') : String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    if (db.categories.some(c => c.id === cleanId)) {
+      return res.status(409).json({ error: `A categoria com identificador '${cleanId}' já existe.` });
+    }
+
+    const newCat: CategoryInfo = {
+      id: cleanId,
+      name: String(name).trim(),
+      tagline: tagline ? String(tagline).trim() : '',
+      image: image || 'https://i.postimg.cc/mD4fkBtT/categoria-canecas.png',
+      productCount: 0,
+      customizable: Boolean(customizable),
+    };
+
+    db.categories.push(newCat);
+    saveDatabase();
+    res.status(201).json(newCat);
+  });
+
+  // Atualizar categoria (Admin)
+  app.put('/api/categories/:id', requireAdmin, (req: Request, res: Response) => {
+    const { id } = req.params;
+    const index = db.categories.findIndex(c => c.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Categoria não encontrada.' });
+    }
+
+    db.categories[index] = {
+      ...db.categories[index],
+      ...req.body,
+      id: db.categories[index].id,
+    };
+    saveDatabase();
+    res.json(db.categories[index]);
+  });
+
+  // Excluir categoria (Admin)
+  app.delete('/api/categories/:id', requireAdmin, (req: Request, res: Response) => {
+    const { id } = req.params;
+    const index = db.categories.findIndex(c => c.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Categoria não encontrada.' });
+    }
+
+    db.categories.splice(index, 1);
+    saveDatabase();
+    res.json({ success: true, message: 'Categoria excluída com sucesso.' });
+  });
+
+  // =========================================================================
+  // 6. INTEGRAÇÃO VITE (Dev & Prod)
   // =========================================================================
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));
@@ -972,18 +1303,8 @@ async function startServer() {
   }
 
   app.listen(port, '0.0.0.0', () => {
-    console.log(`[VYBE Studio API & Server] ativo na porta ${port}`);
+    console.log(`[VYBE Studio API & Server] ativo em http://0.0.0.0:${port}`);
   });
-
-  if (port !== 3000) {
-    try {
-      app.listen(3000, '0.0.0.0', () => {
-        console.log(`[VYBE Studio] Também ativo na porta 3000 para o preview`);
-      });
-    } catch (e) {
-      console.warn('Porta 3000 opcional:', e);
-    }
-  }
 }
 
 startServer();

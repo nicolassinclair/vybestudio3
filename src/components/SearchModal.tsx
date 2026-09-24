@@ -23,9 +23,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
     const q = query.toLowerCase();
     const filtered = products.filter(
       p =>
-        p.name.toLowerCase().includes(q) ||
-        p.categoryLabel.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q)
+        p.status !== 'rascunho' &&
+        (p.name.toLowerCase().includes(q) ||
+          p.categoryLabel.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q))
     );
     setResults(filtered);
   }, [query]);

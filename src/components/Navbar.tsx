@@ -11,7 +11,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
   const location = useLocation();
   const { totalItems, openCart } = useCart();
-  const { customer, customerLogout } = useAuth();
+  const { customer, customerLogout, openAuthModal } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -20,7 +20,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
     { name: 'Início', path: '/' },
     { name: 'Produtos', path: '/produtos' },
     { name: 'Personalizar', path: '/personalizar' },
-    { name: 'Sobre', path: '/sobre' },
     { name: 'Contato', path: '/contato' },
   ];
 
@@ -90,25 +89,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
             />
           </Link>
 
-          {/* Zona 3: Ações primárias (Busca, Conta do Cliente, Carrinho) */}
+          {/* Zona 3: Ações primárias (Conta do Cliente, Carrinho) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Busca */}
-            <button
-              type="button"
-              onClick={onOpenSearch}
-              aria-label="Buscar produtos"
-              className="inline-flex h-11 w-11 items-center justify-center text-stone-700 hover:text-black hover:bg-stone-100 rounded-lg transition-colors cursor-pointer"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-
-            {/* Menu de Conta do Cliente (Seção 9 do briefing) */}
+            {/* Menu de Conta do Cliente / Modal de Autenticação */}
             <div className="relative" ref={userMenuRef}>
               <button
                 type="button"
-                onClick={() => setUserDropdownOpen(prev => !prev)}
-                aria-expanded={userDropdownOpen}
-                aria-label="Opções de conta do cliente"
+                onClick={() => {
+                  if (customer) {
+                    setUserDropdownOpen(prev => !prev);
+                  } else {
+                    openAuthModal('login');
+                  }
+                }}
+                aria-expanded={customer ? userDropdownOpen : undefined}
+                aria-label={customer ? 'Opções da sua conta' : 'Entrar na sua conta'}
                 className={`inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors cursor-pointer ${
                   customer
                     ? 'text-black bg-stone-100 hover:bg-stone-200'
@@ -118,71 +113,45 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
                 <User className="w-5 h-5" />
               </button>
 
-              {/* Dropdown desktop */}
-              {userDropdownOpen && (
+              {/* Dropdown desktop para cliente autenticado */}
+              {customer && userDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl border border-stone-200 shadow-xl py-2 z-50 text-xs">
-                  {customer ? (
-                    <>
-                      <div className="px-4 py-2 border-b border-stone-100">
-                        <p className="font-semibold text-stone-900 truncate">{customer.name}</p>
-                        <p className="text-[11px] text-stone-400 truncate">{customer.email}</p>
-                      </div>
+                  <div className="px-4 py-2 border-b border-stone-100">
+                    <p className="font-semibold text-stone-900 truncate">{customer.name}</p>
+                    <p className="text-[11px] text-stone-400 truncate">{customer.email}</p>
+                  </div>
 
-                      <Link
-                        to="/minha-conta"
-                        onClick={() => setUserDropdownOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2.5 text-stone-700 hover:bg-stone-50 hover:text-black font-medium transition-colors"
-                      >
-                        <User className="w-3.5 h-3.5 text-stone-500" />
-                        <span>Minha conta</span>
-                      </Link>
+                  <Link
+                    to="/minha-conta?tab=profile"
+                    onClick={() => setUserDropdownOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-stone-700 hover:bg-stone-50 hover:text-black font-medium transition-colors"
+                  >
+                    <User className="w-3.5 h-3.5 text-stone-500" />
+                    <span>Minha conta</span>
+                  </Link>
 
-                      <Link
-                        to="/minha-conta"
-                        onClick={() => setUserDropdownOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2.5 text-stone-700 hover:bg-stone-50 hover:text-black font-medium transition-colors"
-                      >
-                        <Package className="w-3.5 h-3.5 text-stone-500" />
-                        <span>Meus pedidos</span>
-                      </Link>
+                  <Link
+                    to="/minha-conta?tab=orders"
+                    onClick={() => setUserDropdownOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-stone-700 hover:bg-stone-50 hover:text-black font-medium transition-colors"
+                  >
+                    <Package className="w-3.5 h-3.5 text-stone-500" />
+                    <span>Meus pedidos</span>
+                  </Link>
 
-                      <div className="pt-1 mt-1 border-t border-stone-100">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUserDropdownOpen(false);
-                            customerLogout();
-                          }}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-rose-600 hover:bg-rose-50 text-left font-medium transition-colors cursor-pointer"
-                        >
-                          <LogOut className="w-3.5 h-3.5" />
-                          <span>Sair</span>
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="px-4 py-1.5 border-b border-stone-100">
-                        <p className="font-semibold text-stone-900">Conta do Cliente</p>
-                      </div>
-
-                      <Link
-                        to="/login"
-                        onClick={() => setUserDropdownOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2.5 text-stone-800 hover:bg-stone-50 font-semibold transition-colors"
-                      >
-                        <span>Entrar</span>
-                      </Link>
-
-                      <Link
-                        to="/cadastro"
-                        onClick={() => setUserDropdownOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2.5 text-stone-600 hover:bg-stone-50 font-medium transition-colors"
-                      >
-                        <span>Criar conta</span>
-                      </Link>
-                    </>
-                  )}
+                  <div className="pt-1 mt-1 border-t border-stone-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        customerLogout();
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-rose-600 hover:bg-rose-50 text-left font-medium transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sair</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -224,12 +193,40 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
               {link.name}
             </Link>
           ))}
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            aria-label="Buscar produtos no catálogo"
+            className="inline-flex items-center gap-1.5 py-1 text-stone-600 hover:text-[#111111] transition-colors cursor-pointer"
+          >
+            <Search className="w-4 h-4" />
+            <span>Buscar</span>
+          </button>
         </nav>
       </div>
 
       {/* Menu / Drawer responsivo com opções integradas no celular */}
       {mobileMenuOpen && (
         <div className="vybe-drop border-t border-stone-200 bg-snow px-4 pt-3 pb-6 space-y-4 shadow-lg max-h-[85vh] overflow-y-auto">
+          {/* Campo de Busca no Menu */}
+          <button
+            type="button"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              onOpenSearch();
+            }}
+            aria-label="Buscar produtos"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white hover:bg-stone-50 text-stone-600 text-sm transition-colors border border-stone-200 shadow-xs cursor-pointer group"
+          >
+            <span className="flex items-center gap-2.5 font-medium text-stone-700 group-hover:text-black">
+              <Search className="w-4 h-4 text-stone-500 group-hover:text-black transition-colors" />
+              <span>O que você procura?</span>
+            </span>
+            <span className="text-[11px] font-semibold bg-stone-100 text-stone-700 px-2 py-0.5 rounded-md border border-stone-200/80">
+              Buscar
+            </span>
+          </button>
+
           {/* Seção do Usuário no celular */}
           <div className="p-3 bg-white rounded-xl border border-stone-200">
             {customer ? (
@@ -243,13 +240,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
                     <p className="text-[11px] text-stone-500 truncate">{customer.email}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 pt-1 text-xs font-medium">
+                <div className="grid grid-cols-3 gap-1.5 pt-1 text-xs font-medium">
                   <Link
-                    to="/minha-conta"
+                    to="/minha-conta?tab=profile"
                     onClick={() => setMobileMenuOpen(false)}
                     className="p-2 rounded-lg bg-stone-50 hover:bg-stone-100 text-stone-800 text-center"
                   >
                     Minha Conta
+                  </Link>
+                  <Link
+                    to="/minha-conta?tab=orders"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-2 rounded-lg bg-stone-50 hover:bg-stone-100 text-stone-800 text-center"
+                  >
+                    Meus Pedidos
                   </Link>
                   <button
                     type="button"
@@ -257,7 +261,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
                       setMobileMenuOpen(false);
                       customerLogout();
                     }}
-                    className="p-2 rounded-lg bg-rose-50 text-rose-700 text-center"
+                    className="p-2 rounded-lg bg-rose-50 text-rose-700 text-center cursor-pointer"
                   >
                     Sair
                   </button>
@@ -265,20 +269,26 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-center">
-                <Link
-                  to="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="py-2.5 px-3 rounded-lg bg-black text-white"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openAuthModal('login');
+                  }}
+                  className="py-2.5 px-3 rounded-lg bg-black text-white hover:bg-stone-800 transition-colors cursor-pointer"
                 >
                   Entrar
-                </Link>
-                <Link
-                  to="/cadastro"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="py-2.5 px-3 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800"
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openAuthModal('register');
+                  }}
+                  className="py-2.5 px-3 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 transition-colors cursor-pointer"
                 >
                   Criar conta
-                </Link>
+                </button>
               </div>
             )}
           </div>
